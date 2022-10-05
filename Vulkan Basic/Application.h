@@ -18,6 +18,9 @@
 #include <cstring>
 #include <optional>
 #include <set>
+#include <cstdint> // for uint32_t
+#include <limits> // for std::numeric_limits
+#include <algorithm> // for std::clamp
 
 struct QueueFamilyIndices {
 
@@ -26,6 +29,13 @@ struct QueueFamilyIndices {
 	bool isComplete() {
 		return graphicsFamily.has_value() && presentFamily.has_value();
 	}
+};
+
+struct SwapChainSupportDetails {
+
+	VkSurfaceCapabilitiesKHR capabilities;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
 };
 
 class HelloTriangleApplication {
@@ -43,7 +53,9 @@ private:
 	void cleanUp();
 	void createInstance();
 	bool checkValidationLayerSupport();
+	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
 	void createSurface();
+	void createSwapChain();
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	std::vector<const char*> getRequiredExtensions();
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -53,6 +65,10 @@ private:
 		void* pUserData
 	);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
@@ -76,6 +92,12 @@ private:
 	VkQueue graphicsQueue;
 	VkSurfaceKHR surface;
 	VkQueue presentQueue;
+
+	const std::vector<const char*> deviceExtensions = {
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
+
+	VkSwapchainKHR swapChain;
 };
 
 #endif 
