@@ -21,6 +21,7 @@
 #include <cstdint> // for uint32_t
 #include <limits> // for std::numeric_limits
 #include <algorithm> // for std::clamp
+#include <fstream> //to read SPIRV shaders
 
 struct QueueFamilyIndices {
 
@@ -46,16 +47,18 @@ private:
 	void initWindow();
 	void initVulkan();
 	void pickPhysicalDevice();
-	void createLogicalDevice();
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 	void setupDebugMessenger();
 	void mainLoop();
 	void cleanUp();
-	void createInstance();
 	bool checkValidationLayerSupport();
 	bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+	void createLogicalDevice();
+	void createInstance();
 	void createSurface();
 	void createSwapChain();
+	void createImageViews();
+	void createGraphicsPipeline();
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	std::vector<const char*> getRequiredExtensions();
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -98,6 +101,12 @@ private:
 	};
 
 	VkSwapchainKHR swapChain;
+	std::vector<VkImage> swapChainImages;
+	VkFormat swapChainImageFormat;
+	VkExtent2D swapChainExtent;
+	std::vector<VkImageView> swapChainImageViews;
+	
+		
 };
 
 #endif 
