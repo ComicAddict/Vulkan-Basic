@@ -59,6 +59,7 @@ private:
 	void createSwapChain();
 	void createImageViews();
 	void createGraphicsPipeline();
+	void createRenderPass();
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	std::vector<const char*> getRequiredExtensions();
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -72,6 +73,7 @@ private:
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+	VkShaderModule createShaderModule(const std::vector<char>& code);
 	
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
@@ -105,8 +107,9 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	std::vector<VkImageView> swapChainImageViews;
-	
-		
+	VkRenderPass renderPass;
+	VkPipelineLayout pipelineLayout;
+	VkPipeline graphicsPipeline;
 };
 
 #endif 
