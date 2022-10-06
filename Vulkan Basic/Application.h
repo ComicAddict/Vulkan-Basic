@@ -23,6 +23,8 @@
 #include <algorithm> // for std::clamp
 #include <fstream> //to read SPIRV shaders
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
+
 struct QueueFamilyIndices {
 
 	std::optional<uint32_t> graphicsFamily;
@@ -60,6 +62,12 @@ private:
 	void createImageViews();
 	void createGraphicsPipeline();
 	void createRenderPass();
+	void createFramebuffers();
+	void createCommandPool();
+	void createCommandBuffer();
+	void createSyncObjects();
+	void drawFrame();
+	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	std::vector<const char*> getRequiredExtensions();
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
@@ -110,6 +118,14 @@ private:
 	VkRenderPass renderPass;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
+	std::vector<VkFramebuffer> swapChainFramebuffers;
+	VkCommandPool commandPool;
+	VkCommandBuffer commandBuffer;
+	
+	VkSemaphore imageAvailableSemaphore;
+	VkSemaphore renderFinishedSemaphore;
+	VkFence inFlightScene;
+
 };
 
 #endif 
