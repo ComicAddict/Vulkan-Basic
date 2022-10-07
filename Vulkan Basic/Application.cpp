@@ -239,6 +239,7 @@ void HelloTriangleApplication::createGraphicsPipeline() {
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;//there is fill, line, points
 	rasterizer.lineWidth = 1.0f;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;
 	rasterizer.depthBiasClamp = 0.0f;
@@ -529,9 +530,10 @@ void HelloTriangleApplication::mainLoop() {
 		glfwPollEvents();
 		drawFrame();
 	}
+	vkDeviceWaitIdle(device);
 }
 
-void HelloTriangleApplication::drawFrame() {
+void HelloTriangleApplication::drawFrame() {;
 	vkWaitForFences(device, 1, &inFlightScene, VK_TRUE, UINT64_MAX);
 	vkResetFences(device, 1, &inFlightScene);
 	
@@ -570,8 +572,6 @@ void HelloTriangleApplication::drawFrame() {
 	presentInfo.pImageIndices = &imageIndex;
 	presentInfo.pResults = nullptr;
 
-	presentInfo.swapchainCount = 1;
-
 	vkQueuePresentKHR(presentQueue, &presentInfo);
 }
 
@@ -592,8 +592,8 @@ void HelloTriangleApplication::createSyncObjects() {
 }
 
 void HelloTriangleApplication::cleanUp() {
-	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 	vkDestroySemaphore(device, renderFinishedSemaphore, nullptr);
+	vkDestroySemaphore(device, imageAvailableSemaphore, nullptr);
 	vkDestroyFence(device, inFlightScene, nullptr);
 	vkDestroyCommandPool(device, commandPool, nullptr);
 	for (auto framebuffer : swapChainFramebuffers)
@@ -795,7 +795,7 @@ SwapChainSupportDetails HelloTriangleApplication::querySwapChainSupport(VkPhysic
 	uint32_t presentModeCount;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
 
-	if (formatCount != 0) {
+	if (presentModeCount != 0) {
 		details.presentModes.resize(presentModeCount);
 		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
 	}
