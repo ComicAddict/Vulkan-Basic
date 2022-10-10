@@ -10,6 +10,12 @@
 #define GLF_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3native.h>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
 
 #include <iostream>
 #include <stdexcept>
@@ -22,8 +28,39 @@
 #include <limits> // for std::numeric_limits
 #include <algorithm> // for std::clamp
 #include <fstream> //to read SPIRV shaders
+#include <array>
+#include <chrono>
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
+
+struct Vertex {
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDesc{};
+		bindingDesc.binding = 0;
+		bindingDesc.stride = sizeof(Vertex);
+		bindingDesc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		return bindingDesc;
+	}
+
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 2> attrDesc{};
+		//pos
+		attrDesc[0].binding = 0;
+		attrDesc[0].location = 0;
+		attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attrDesc[0].offset = offsetof(Vertex, pos);
+		//color
+		attrDesc[1].binding = 0;
+		attrDesc[1].location = 1;
+		attrDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attrDesc[1].offset = offsetof(Vertex, color);
+
+		return attrDesc;
+	}
+};
 
 struct QueueFamilyIndices {
 
@@ -39,6 +76,12 @@ struct SwapChainSupportDetails {
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
+};
+
+struct UniformBufferObject {
+	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 view;
+	alignas(16) glm::mat4 proj;
 };
 
 class HelloTriangleApplication {
@@ -64,25 +107,40 @@ private:
 	void createRenderPass();
 	void createFramebuffers();
 	void createCommandPool();
-	void createCommandBuffer();
+	void createCommandBuffers();
 	void createSyncObjects();
 	void drawFrame();
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+	void recreateSwapChain();
+	void cleanupSwapChain();
+	void createVertexBuffers();
+	void createIndexBuffers();
+	void createDescriptorSetLayout();
+	void createUniformBuffers();
+	void updateUniformBuffer(uint32_t currentImage);
+	void createDescriptorPool();
+	void createDescriptorSets();
+	void createTextureImage();
 	bool isDeviceSuitable(VkPhysicalDevice device);
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+	void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
 	std::vector<const char*> getRequiredExtensions();
-	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-		VkDebugUtilsMessageTypeFlagsEXT messageType,
-		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-		void* pUserData
-	);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 	VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 	VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
+	uint32_t findMemorytype(uint32_t typeFiler, VkMemoryPropertyFlags properties);
 	
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData
+	);
+	static void framebufferResizeCallback(GLFWwindow* window, int widht, int height);
+
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
@@ -116,6 +174,7 @@ private:
 	VkExtent2D swapChainExtent;
 	std::vector<VkImageView> swapChainImageViews;
 	VkRenderPass renderPass;
+	VkDescriptorSetLayout descriptorSetLayout;
 	VkPipelineLayout pipelineLayout;
 	VkPipeline graphicsPipeline;
 	std::vector<VkFramebuffer> swapChainFramebuffers;
@@ -124,9 +183,33 @@ private:
 	
 	std::vector<VkSemaphore> imageAvailableSemaphores;
 	std::vector<VkSemaphore> renderFinishedSemaphores;
-	std::vector<VkFence> inFlightScenes;
+	std::vector<VkFence> inFlightFences;
 
 	uint32_t currentFrame = 0;
+	bool framebufferResized = false;
+
+	const std::vector<Vertex> vertices = {
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+	};
+
+	const std::vector<uint16_t> indices = {
+		0, 1, 2, 2, 3, 0
+	};
+
+	VkBuffer vertexBuffer;
+	VkDeviceMemory vertexBufferMemory;
+	VkBuffer indexBuffer;
+	VkDeviceMemory indexBufferMemory;
+
+	std::vector<VkBuffer> uniformBuffers;
+	std::vector<VkDeviceMemory> uniformBuffersMemory;
+
+	VkDescriptorPool descriptorPool;
+	std::vector<VkDescriptorSet> descriptorSets;
+
 };
 
 #endif 
