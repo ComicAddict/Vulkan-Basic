@@ -1292,7 +1292,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 	//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 10, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 
