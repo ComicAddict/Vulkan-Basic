@@ -1087,8 +1087,8 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage) {
 
 	UniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(.0f, .0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f,2.0f,2.0f), glm::vec3(.0f,.0f,.0f), glm::vec3(0.0f,.0f,1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width/(float) swapChainExtent.height, .1f, 10.f);
+	ubo.view = glm::lookAt(glm::vec3(80.0f,80.0f,5.0f), glm::vec3(20.0f,20.0f,.0f), glm::vec3(0.0f,.0f,1.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width/(float) swapChainExtent.height, .1f, 700.f);
 	ubo.proj[1][1] *= -1;
 
 
@@ -1292,7 +1292,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 	//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 10, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 4900, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 

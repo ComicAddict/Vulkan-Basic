@@ -23,8 +23,9 @@ mat4 getTranslation(vec3 delta){
 }
 
 void main() {
-    mat4 modelInstance = getTranslation(vec3(0.01f*gl_InstanceIndex,0.0,0.0));
-    gl_Position = ubo.proj * ubo.view * modelInstance * vec4(inPosition, 1.0);
+    float gridSpace = 2.0f;
+    mat4 modelInstance = getTranslation(vec3(gridSpace*(gl_InstanceIndex%70),gridSpace*floor(gl_InstanceIndex/70.0),0.0)+vec3(-gridSpace*35.0,-gridSpace*35.0,0.0));
+    gl_Position = ubo.proj * ubo.view * modelInstance * ubo.model * vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 }

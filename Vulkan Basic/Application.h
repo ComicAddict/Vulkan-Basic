@@ -184,8 +184,8 @@ private:
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
-	const std::string MODEL_PATH = "obj/viking_room.obj";
-	const std::string TEXTURE_PATH = "textures/viking_room.png";
+	const std::string MODEL_PATH = "obj/terrorbird.obj";
+	const std::string TEXTURE_PATH = "textures/terrorbird.jpg";
 
 	const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -232,6 +232,7 @@ private:
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
+	std::vector<glm::vec3> positions;
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
