@@ -35,6 +35,7 @@ const int MAX_FRAMES_IN_FLIGHT = 2;
 struct Vertex {
 	glm::vec2 pos;
 	glm::vec3 color;
+	glm::vec2 texCoord;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDesc{};
@@ -44,8 +45,8 @@ struct Vertex {
 		return bindingDesc;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 2> attrDesc{};
+	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 3> attrDesc{};
 		//pos
 		attrDesc[0].binding = 0;
 		attrDesc[0].location = 0;
@@ -56,7 +57,11 @@ struct Vertex {
 		attrDesc[1].location = 1;
 		attrDesc[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attrDesc[1].offset = offsetof(Vertex, color);
-
+		//UV
+		attrDesc[2].binding = 0;
+		attrDesc[2].location = 2;
+		attrDesc[2].format = VK_FORMAT_R32G32_SFLOAT;
+		attrDesc[2].offset = offsetof(Vertex, texCoord);
 		return attrDesc;
 	}
 };
@@ -196,10 +201,10 @@ private:
 	bool framebufferResized = false;
 
 	const std::vector<Vertex> vertices = {
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
 	};
 
 	const std::vector<uint16_t> indices = {
