@@ -1,15 +1,8 @@
-#include <vulkan/vulkan.h>
-
-#define GLFW_INCLUDE_VULKAN
-#include <glfw/glfw3.h>
-
 #include "Application.h"
 
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
-#include <vector>
-#include <cstring>
 
 
 int main() {

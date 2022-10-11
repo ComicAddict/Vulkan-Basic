@@ -14,7 +14,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
 #include <iostream>
@@ -121,6 +120,13 @@ private:
 	void createDescriptorPool();
 	void createDescriptorSets();
 	void createTextureImage();
+	void createTextureImageView();
+	void createTextureSampler();
+	VkImageView createImageView(VkImage image, VkFormat format);
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t w, uint32_t height);
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	bool isDeviceSuitable(VkPhysicalDevice device);
 	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 	void copyBuffer(VkBuffer src, VkBuffer dst, VkDeviceSize size);
@@ -140,6 +146,7 @@ private:
 		void* pUserData
 	);
 	static void framebufferResizeCallback(GLFWwindow* window, int widht, int height);
+	VkCommandBuffer beginSingleTimeCommands();
 
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
@@ -209,6 +216,12 @@ private:
 
 	VkDescriptorPool descriptorPool;
 	std::vector<VkDescriptorSet> descriptorSets;
+
+	VkImage textureImage;
+	VkDeviceMemory textureImageMemory;
+
+	VkImageView textureImageView;
+	VkSampler textureSampler;
 
 };
 
