@@ -11,10 +11,15 @@
 #include <glfw/glfw3native.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
 
 #include <stb/stb_image.h>
+
+#include <tinyobjloader/tiny_obj_loader.h>
 
 #include <iostream>
 #include <stdexcept>
@@ -29,11 +34,12 @@
 #include <fstream> //to read SPIRV shaders
 #include <array>
 #include <chrono>
+#include <unordered_map>
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
 struct Vertex {
-	glm::vec2 pos;
+	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
 
@@ -50,7 +56,7 @@ struct Vertex {
 		//pos
 		attrDesc[0].binding = 0;
 		attrDesc[0].location = 0;
-		attrDesc[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attrDesc[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attrDesc[0].offset = offsetof(Vertex, pos);
 		//color
 		attrDesc[1].binding = 0;
@@ -64,7 +70,24 @@ struct Vertex {
 		attrDesc[2].offset = offsetof(Vertex, texCoord);
 		return attrDesc;
 	}
+
+	bool operator==(const Vertex& other) const {
+		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+	}
+
+
 };
+
+
+namespace std {
+	template<> struct hash<Vertex> {
+		size_t operator()(Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^
+				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
 
 struct QueueFamilyIndices {
 
@@ -126,8 +149,13 @@ private:
 	void createDescriptorSets();
 	void createTextureImage();
 	void createTextureImageView();
-	void createTextureSampler();
-	VkImageView createImageView(VkImage image, VkFormat format);
+	void createTextureSampler();  
+	void createDepthResources();
+	VkFormat findDepthFormat();
+	void loadModel();
+	bool hasStencilComponent(VkFormat format);
+	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t w, uint32_t height);
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
@@ -156,6 +184,8 @@ private:
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
+	const std::string MODEL_PATH = "obj/viking_room.obj";
+	const std::string TEXTURE_PATH = "textures/viking_room.png";
 
 	const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -200,16 +230,8 @@ private:
 	uint32_t currentFrame = 0;
 	bool framebufferResized = false;
 
-	const std::vector<Vertex> vertices = {
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-	};
-
-	const std::vector<uint16_t> indices = {
-		0, 1, 2, 2, 3, 0
-	};
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
 
 	VkBuffer vertexBuffer;
 	VkDeviceMemory vertexBufferMemory;
@@ -228,6 +250,9 @@ private:
 	VkImageView textureImageView;
 	VkSampler textureSampler;
 
+	VkImage depthImage;
+	VkDeviceMemory depthImageMemory;
+	VkImageView depthImageView;
 };
 
 #endif 

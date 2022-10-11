@@ -45,5 +45,8 @@
     <Image Include="textures\texture.jpg">
       <Filter>Resource Files\textures</Filter>
     </Image>
+    <Image Include="textures\viking_room.png">
+      <Filter>Resource Files\textures</Filter>
+    </Image>
   </ItemGroup>
 </Project>
