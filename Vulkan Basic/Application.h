@@ -21,6 +21,10 @@
 
 #include <tinyobjloader/tiny_obj_loader.h>
 
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_vulkan.h>
+
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
@@ -35,6 +39,10 @@
 #include <array>
 #include <chrono>
 #include <unordered_map>
+
+#ifdef _DEBUG
+#define IMGUI_VULKAN_DEBUG_REPORT
+#endif
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 const int INSTANCE_NUMBER = 50;
@@ -133,6 +141,7 @@ struct UniformBufferObject {
 class HelloTriangleApplication {
 
 public:
+	HelloTriangleApplication();
 	void run();
 private:
 
@@ -175,6 +184,7 @@ private:
 	void createDepthResources();
 	VkFormat findDepthFormat();
 	void loadModel();
+	void initImGui();
 	bool hasStencilComponent(VkFormat format);
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
@@ -282,6 +292,7 @@ private:
 	VkDeviceMemory depthImageMemory;
 	VkImageView depthImageView;
 
+	VkDescriptorPool imguiPool;
 
 };
 

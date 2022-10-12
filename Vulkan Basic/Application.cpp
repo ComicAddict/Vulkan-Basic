@@ -149,12 +149,77 @@ VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<ch
 	return shaderModule;
 }
 
+HelloTriangleApplication::HelloTriangleApplication() {
+
+}
+
 void HelloTriangleApplication::run() {
 	initWindow();
+#ifndef NDEBUG
+	printf("GLFW Window Initialized\n");
+#endif // NDEBUG
+
 	initCam();
 	initVulkan();
+#ifndef NDEBUG
+	printf("Vulkan Initialized\n");
+#endif // NDEBUG
+	initImGui();
+#ifndef NDEBUG
+	printf("ImGui Initialized\n");
+#endif // NDEBUG
 	mainLoop();
 	cleanUp();
+}
+
+void HelloTriangleApplication::initImGui() {
+	VkDescriptorPoolSize poolSizes[] =
+	{
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+	VkDescriptorPoolCreateInfo poolInfo = {};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	poolInfo.maxSets = 1000 * IM_ARRAYSIZE(poolSizes);
+	poolInfo.poolSizeCount = (uint32_t)IM_ARRAYSIZE(poolSizes);
+	poolInfo.pPoolSizes = poolSizes;
+
+	
+	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &imguiPool) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create descriptor pool for imgui!");
+	}
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui_ImplGlfw_InitForVulkan(window, true);
+	ImGui_ImplVulkan_InitInfo initInfo{};
+
+	initInfo.Instance = instance;
+	initInfo.PhysicalDevice = physicalDevice;
+	initInfo.Device = device;
+	initInfo.Queue = graphicsQueue;
+	initInfo.DescriptorPool = imguiPool;
+	initInfo.MinImageCount = 3;
+	initInfo.ImageCount = 3;
+	initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+	ImGui_ImplVulkan_Init(&initInfo, renderPass);
+
+	VkCommandBuffer imGuiCB = beginSingleTimeCommands();
+	ImGui_ImplVulkan_CreateFontsTexture(imGuiCB);
+	endSingleTimeCommands(imGuiCB);
+	ImGui_ImplVulkan_DestroyFontUploadObjects();
+
 }
 
 void HelloTriangleApplication::initCam() {
@@ -164,7 +229,7 @@ void HelloTriangleApplication::initCam() {
 }
 
 void HelloTriangleApplication::initMouse() {
-	mouse.sensitivity = 1.0f;
+	mouse.sensitivity = 5.0f;
 	mouse.focused = false;
 	mouse.firstMouse = true;
 	mouse.lastMouse = glm::vec2(WIDTH/2,HEIGHT/2);
@@ -1122,7 +1187,15 @@ void HelloTriangleApplication::mainLoop() {
 		float currentFrame = static_cast<float>(glfwGetTime());
 		deltaTimeFrame = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+
 		processInput(window);
+
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::ShowDemoWindow();
+		ImGui::Render();
 		glfwPollEvents();
 		drawFrame();
 	}
@@ -1199,10 +1272,12 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage) {
 	float gridSize = 2.0f;
 	for (int i = 0; i < INSTANCE_NUMBER; i++) {
 		//TODO: for each member, translate to location from updated loaction
+		//ubo.location[i] = glm::vec3(i * gridSize, i * gridSize, 0.0f);
 		
 		ubo.model[i] = glm::translate(glm::mat4(1.0f), glm::vec3(i * gridSize, i * gridSize, 0.0f));
 		//TODO: after location update get them to orient according to their speed
-		ubo.model[i] = glm::rotate(ubo.model[i], time * glm::radians(90.0f), glm::vec3(.0f, .0f, 1.0f));
+		//ubo.model[i] = glm::rotate(ubo.model[i], time * glm::radians(90.0f), glm::vec3(.0f, .0f, 1.0f));
+		//ubo.rotation[i] = glm::vec3(i * gridSize, i * gridSize, 0.0f);
 	}
 	
 	ubo.view = glm::lookAt(cam.pos, cam.pos + cam.front, cam.up);
@@ -1241,6 +1316,8 @@ void HelloTriangleApplication::createSyncObjects() {
 }
 
 void HelloTriangleApplication::cleanUp() {
+	vkDestroyDescriptorPool(device, imguiPool, nullptr);
+	ImGui_ImplVulkan_Shutdown();
 	cleanupSwapChain();
 
 	vkDestroySampler(device, textureSampler, nullptr);
@@ -1412,7 +1489,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 
 	//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), INSTANCE_NUMBER, 0, 0, 0);
-
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 	vkCmdEndRenderPass(commandBuffer);
 
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
