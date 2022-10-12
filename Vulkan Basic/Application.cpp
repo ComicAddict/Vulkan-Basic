@@ -2,6 +2,93 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "Application.h"
 
+Camera cam{};
+Mouse mouse{};
+
+void mouseButtonCallBack(GLFWwindow* window, int button, int action, int modsdouble) {
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+
+	}
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
+		if (mouse.focused)
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		else
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		mouse.focused = !mouse.focused;
+	}
+}
+
+void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+	mouse.sensitivity += 0.1f * static_cast<float>(yoffset);
+	if (mouse.sensitivity < 0) {
+		mouse.sensitivity = 0.01f;
+	}
+}
+
+void mouseCallback(GLFWwindow* window, double xposIn, double yposIn) {
+	if (mouse.focused) {
+		float xpos = static_cast<float>(xposIn);
+		float ypos = static_cast<float>(yposIn);
+
+		if (mouse.firstMouse)
+		{
+			mouse.lastMouse.x = xpos;
+			mouse.lastMouse.y = ypos;
+			mouse.firstMouse = false;
+		}
+
+		float xoffset = xpos - mouse.lastMouse.x;
+		float yoffset = ypos - mouse.lastMouse.y; // reversed since y-coordinates go from bottom to top
+		mouse.lastMouse.x = xpos;
+		mouse.lastMouse.y = ypos;
+
+		float mouseSens = 0.2f;
+		xoffset *= mouseSens;
+		yoffset *= mouseSens;
+
+		cam.yaw -= xoffset;
+		cam.pitch -= yoffset;
+
+		// make sure that when pitch is out of bounds, screen doesn't get flipped
+		if (cam.pitch > 89.0f)
+			cam.pitch = 89.0f;
+		if (cam.pitch < -89.0f)
+			cam.pitch = -89.0f;
+
+		glm::vec3 front;
+		front.x = cos(glm::radians(cam.yaw)) * cos(glm::radians(cam.pitch));
+		front.y = sin(glm::radians(cam.yaw)) * cos(glm::radians(cam.pitch));
+		front.z = sin(glm::radians(cam.pitch));
+		cam.front = glm::normalize(front);
+
+	}
+	else {
+		float xpos = static_cast<float>(xposIn);
+		float ypos = static_cast<float>(yposIn);
+		mouse.lastMouse.x = xpos;
+		mouse.lastMouse.y = ypos;
+	}
+}
+
+void processInput(GLFWwindow* window)
+{
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+
+	float camSpeed = static_cast<float>(mouse.sensitivity * deltaTimeFrame);
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		cam.pos += camSpeed * cam.front;
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		cam.pos -= camSpeed * cam.front;
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		cam.pos -= camSpeed * glm::normalize(glm::cross(cam.front, cam.up));
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		cam.pos += camSpeed * glm::normalize(glm::cross(cam.front, cam.up));
+	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+		cam.pos += camSpeed * cam.up;
+	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+		cam.pos -= camSpeed * cam.up;;
+}
 VkResult CreateDebugUtilsMessengerEXT(
 	VkInstance instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -64,9 +151,23 @@ VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<ch
 
 void HelloTriangleApplication::run() {
 	initWindow();
+	initCam();
 	initVulkan();
 	mainLoop();
 	cleanUp();
+}
+
+void HelloTriangleApplication::initCam() {
+	cam.pos = glm::vec3(10.0,10.0,10.0);
+	cam.front = glm::vec3(-1.0, -1.0, -1.0);
+	cam.up = glm::vec3(.0, .0, 1.0);
+}
+
+void HelloTriangleApplication::initMouse() {
+	mouse.sensitivity = 1.0f;
+	mouse.focused = false;
+	mouse.firstMouse = true;
+	mouse.lastMouse = glm::vec2(WIDTH/2,HEIGHT/2);
 }
 
 void HelloTriangleApplication::initWindow() {
@@ -76,6 +177,11 @@ void HelloTriangleApplication::initWindow() {
 	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan Basics", nullptr, nullptr);
 	glfwSetWindowUserPointer(window, this);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallBack);
+	glfwSetCursorPosCallback(window, mouseCallback);
+	glfwSetScrollCallback(window, scrollCallback);
+	deltaTimeFrame = 0.0f;
+	lastFrame = 0.0f;
 }
 
 void HelloTriangleApplication::initVulkan() {
@@ -1013,6 +1119,10 @@ void HelloTriangleApplication::setupDebugMessenger() {
 
 void HelloTriangleApplication::mainLoop() {
 	while (!glfwWindowShouldClose(window)) {
+		float currentFrame = static_cast<float>(glfwGetTime());
+		deltaTimeFrame = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+		processInput(window);
 		glfwPollEvents();
 		drawFrame();
 	}
@@ -1086,8 +1196,17 @@ void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage) {
 
 
 	UniformBufferObject ubo{};
-	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(.0f, .0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(80.0f,80.0f,5.0f), glm::vec3(20.0f,20.0f,.0f), glm::vec3(0.0f,.0f,1.0f));
+	float gridSize = 2.0f;
+	for (int i = 0; i < INSTANCE_NUMBER; i++) {
+		//TODO: for each member, translate to location from updated loaction
+		
+		ubo.model[i] = glm::translate(glm::mat4(1.0f), glm::vec3(i * gridSize, i * gridSize, 0.0f));
+		//TODO: after location update get them to orient according to their speed
+		ubo.model[i] = glm::rotate(ubo.model[i], time * glm::radians(90.0f), glm::vec3(.0f, .0f, 1.0f));
+	}
+	
+	ubo.view = glm::lookAt(cam.pos, cam.pos + cam.front, cam.up);
+	//ubo.view = glm::lookAt(glm::vec3(10.0,10.0,10.0), glm::vec3(0, 0, 0), glm::vec3(0.0, 0.0, 1.0));
 	ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width/(float) swapChainExtent.height, .1f, 700.f);
 	ubo.proj[1][1] *= -1;
 
@@ -1292,7 +1411,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 	//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 4900, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), INSTANCE_NUMBER, 0, 0, 0);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -1423,7 +1542,6 @@ SwapChainSupportDetails HelloTriangleApplication::querySwapChainSupport(VkPhysic
 	return details;
 }
 
-
 VkSurfaceFormatKHR HelloTriangleApplication::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) {
 	for (const auto& availableFormat : availableFormats)
 		if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
@@ -1461,4 +1579,5 @@ VkExtent2D HelloTriangleApplication::chooseSwapExtent(const VkSurfaceCapabilitie
 void HelloTriangleApplication::framebufferResizeCallback(GLFWwindow* window, int widht, int height) {
 	auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
 	app->framebufferResized = true;
+	//mouse.lastMouse = glm::vec2(widht/2, height/2);
 }

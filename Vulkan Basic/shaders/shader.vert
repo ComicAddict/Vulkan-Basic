@@ -1,7 +1,7 @@
 #version 450
 
 layout(binding = 0) uniform UniformBufferObject{
-    mat4 model;
+    mat4 model[50];
     mat4 view;
     mat4 proj;
 } ubo;
@@ -24,8 +24,8 @@ mat4 getTranslation(vec3 delta){
 
 void main() {
     float gridSpace = 2.0f;
-    mat4 modelInstance = getTranslation(vec3(gridSpace*(gl_InstanceIndex%70),gridSpace*floor(gl_InstanceIndex/70.0),0.0)+vec3(-gridSpace*35.0,-gridSpace*35.0,0.0));
-    gl_Position = ubo.proj * ubo.view * modelInstance * ubo.model * vec4(inPosition, 1.0);
+    //mat4 modelInstance = getTranslation(vec3(gridSpace*(gl_InstanceIndex%70),gridSpace*floor(gl_InstanceIndex/70.0),0.0)+vec3(-gridSpace*35.0,-gridSpace*35.0,0.0));
+    gl_Position = ubo.proj * ubo.view * ubo.model[gl_InstanceIndex] * vec4(inPosition, 1.0);
     fragColor = inColor;
     fragTexCoord = inTexCoord;
 }

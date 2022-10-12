@@ -37,6 +37,25 @@
 #include <unordered_map>
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
+const int INSTANCE_NUMBER = 50;
+
+struct Camera {
+	glm::vec3 pos;
+	glm::vec3 front;
+	glm::vec3 up;
+	float yaw;
+	float pitch;
+};
+
+struct Mouse {
+	float sensitivity;
+	bool focused;
+	glm::vec2 lastMouse;
+	bool firstMouse;
+};
+
+static float deltaTimeFrame;
+static float lastFrame;
 
 struct Vertex {
 	glm::vec3 pos;
@@ -106,17 +125,20 @@ struct SwapChainSupportDetails {
 };
 
 struct UniformBufferObject {
-	alignas(16) glm::mat4 model;
+	alignas(16) glm::mat4 model[INSTANCE_NUMBER];
 	alignas(16) glm::mat4 view;
 	alignas(16) glm::mat4 proj;
 };
 
 class HelloTriangleApplication {
+
 public:
 	void run();
 private:
 
 	void initWindow();
+	void initCam();
+	void initMouse();
 	void initVulkan();
 	void pickPhysicalDevice();
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
@@ -179,6 +201,11 @@ private:
 		void* pUserData
 	);
 	static void framebufferResizeCallback(GLFWwindow* window, int widht, int height);
+	//void mouseButtonCallBack(GLFWwindow* window, int button, int action, int modsdouble);
+	//void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+	//void mouseCallback(GLFWwindow* window, double xposIn, double yposIn);
+	//void processInput(GLFWwindow* window);
+
 	VkCommandBuffer beginSingleTimeCommands();
 
 	GLFWwindow* window;
@@ -254,6 +281,8 @@ private:
 	VkImage depthImage;
 	VkDeviceMemory depthImageMemory;
 	VkImageView depthImageView;
+
+
 };
 
 #endif 
