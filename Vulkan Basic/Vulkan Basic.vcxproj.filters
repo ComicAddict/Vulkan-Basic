@@ -86,6 +86,9 @@
     <ClInclude Include="..\..\..\..\..\..\Include\imgui\imgui.h">
       <Filter>Header Files\imgui</Filter>
     </ClInclude>
+    <ClInclude Include="Flock.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\shader.frag">

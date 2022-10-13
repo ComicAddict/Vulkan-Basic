@@ -5,6 +5,7 @@
 Camera cam{};
 Mouse mouse{};
 
+
 void mouseButtonCallBack(GLFWwindow* window, int button, int action, int modsdouble) {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS) {
 
@@ -149,10 +150,6 @@ VkShaderModule HelloTriangleApplication::createShaderModule(const std::vector<ch
 	return shaderModule;
 }
 
-HelloTriangleApplication::HelloTriangleApplication() {
-
-}
-
 void HelloTriangleApplication::run() {
 	initWindow();
 #ifndef NDEBUG
@@ -168,6 +165,7 @@ void HelloTriangleApplication::run() {
 #ifndef NDEBUG
 	printf("ImGui Initialized\n");
 #endif // NDEBUG
+	initBoids(glm::vec3(10.0f), glm::vec3(5.0f));
 	mainLoop();
 	cleanUp();
 }
@@ -199,11 +197,29 @@ void HelloTriangleApplication::initImGui() {
 		throw std::runtime_error("failed to create descriptor pool for imgui!");
 	}
 
+	
+
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
-	ImGui_ImplGlfw_InitForVulkan(window, true);
-	ImGui_ImplVulkan_InitInfo initInfo{};
 
+	ImGuiIO& io = ImGui::GetIO();
+	(void)io;
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+	//io.ConfigViewportsNoAutoMerge = true;
+	io.ConfigViewportsNoTaskBarIcon = true;
+	ImGui::StyleColorsDark();
+
+	ImGuiStyle& style = ImGui::GetStyle();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		style.WindowRounding = 0.0f;
+		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+	}
+
+	ImGui_ImplGlfw_InitForVulkan(window, true);
+
+	ImGui_ImplVulkan_InitInfo initInfo{};
 	initInfo.Instance = instance;
 	initInfo.PhysicalDevice = physicalDevice;
 	initInfo.Device = device;
@@ -218,13 +234,14 @@ void HelloTriangleApplication::initImGui() {
 	VkCommandBuffer imGuiCB = beginSingleTimeCommands();
 	ImGui_ImplVulkan_CreateFontsTexture(imGuiCB);
 	endSingleTimeCommands(imGuiCB);
+
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
 }
 
 void HelloTriangleApplication::initCam() {
-	cam.pos = glm::vec3(10.0,10.0,10.0);
-	cam.front = glm::vec3(-1.0, -1.0, -1.0);
+	cam.pos = glm::vec3(-10.0,-10.0,10.0);
+	cam.front = glm::vec3(1.0, 1.0, -1.0);
 	cam.up = glm::vec3(.0, .0, 1.0);
 }
 
@@ -266,9 +283,12 @@ void HelloTriangleApplication::initVulkan() {
 	createTextureImage();
 	createTextureImageView();
 	createTextureSampler();
-	loadModel();
-	createVertexBuffers();
-	createIndexBuffers();
+	birdindex = loadModel("obj/firebird.obj");
+	createVertexBuffers(vertexBuffer, vertexBufferMemory, vertices);
+	createIndexBuffers(indexBuffer, indexBufferMemory, indices);
+	//cylinderindex = loadModel("obj/cylinder.obj");
+	//createVertexBuffers(vertexBufferCylinder, vertexBufferMemoryCylinder, vertices);
+	//createIndexBuffers(indexBufferCylinder, indexBufferMemoryCylinder, indices);
 	createUniformBuffers();
 	createDescriptorPool();
 	createDescriptorSets();
@@ -276,13 +296,38 @@ void HelloTriangleApplication::initVulkan() {
 	createSyncObjects();
 }
 
-void HelloTriangleApplication::loadModel() {
+void HelloTriangleApplication::initBoids(glm::vec3 posVar, glm::vec3 velVar) {
+	for (size_t i = 0; i < INSTANCE_NUMBER; i++) {
+		boids[i].pos = glm::linearRand(-posVar, posVar);
+		boids[i].vel = glm::linearRand(glm::vec3(0.0f,-velVar.y,-velVar.z), velVar);
+		boids[i].acc = glm::vec3(.0f, .0f, .0f);
+		boids[i].phi = 0.0f;
+
+		//printf("boid[%d]: pos: %f, %f, %f  vel:  %f, %f, %f  acc: %f, %f, %f\n", i, boids[i].pos.x, boids[i].pos.y, boids[i].pos.z, boids[i].vel.x, boids[i].vel.y, boids[i].vel.z, boids[i].acc.x, boids[i].acc.y, boids[i].acc.z);
+	}
+}
+
+void HelloTriangleApplication::integrate(float time) {
+	//printf("%f\n", time);
+	for (size_t i = 0; i < INSTANCE_NUMBER; i++) {
+		//printf("pos before: %f, %f, %f", boids[i].pos.x, boids[i].pos.y, boids[i].pos.z);
+		boids[i].pos += boids[i].vel * time;
+		//printf("   pos after: %f, %f, %f\n", boids[i].pos.x, boids[i].pos.y, boids[i].pos.z);
+		//printf("vel before: %f, %f, %f", boids[i].vel.x, boids[i].vel.y, boids[i].vel.z);
+		boids[i].vel += boids[i].acc * time;
+		//printf("   vel after: %f, %f, %f\n", boids[i].vel.x, boids[i].vel.y, boids[i].vel.z);
+	}
+}
+
+int HelloTriangleApplication::loadModel(std::string model_path) {
+	vertices.clear();
+	indices.clear();
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 	std::string warn, err;
 
-	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, MODEL_PATH.c_str()))
+	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, model_path.c_str()))
 		throw std::runtime_error(warn);
 
 
@@ -305,8 +350,6 @@ void HelloTriangleApplication::loadModel() {
 
 			vertex.color = { 1.0f,1.0f,1.0f };
 
-			
-
 			if (uniqueVertices.count(vertex) == 0) {
 				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
 				vertices.push_back(vertex);
@@ -314,6 +357,8 @@ void HelloTriangleApplication::loadModel() {
 			indices.push_back(uniqueVertices[vertex]);
 		}
 	}
+
+	return indices.size();
 }
 
 void HelloTriangleApplication::createDepthResources() {
@@ -666,7 +711,7 @@ void HelloTriangleApplication::copyBufferToImage(VkBuffer buffer, VkImage image,
 	endSingleTimeCommands(commandBuffer);
 }
 
-void HelloTriangleApplication::createIndexBuffers() {
+void HelloTriangleApplication::createIndexBuffers(VkBuffer &indexBuffer, VkDeviceMemory &indexBufferMemory, std::vector<uint32_t> indices) {
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
 	VkBuffer stagingBuffer;
@@ -687,7 +732,7 @@ void HelloTriangleApplication::createIndexBuffers() {
 	
 }
 
-void HelloTriangleApplication::createVertexBuffers() {
+void HelloTriangleApplication::createVertexBuffers(VkBuffer& vertexBuffer, VkDeviceMemory& vertexBufferMemory, std::vector<Vertex> vertices) {
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
 	VkBuffer stagingBuffer;
@@ -1183,10 +1228,30 @@ void HelloTriangleApplication::setupDebugMessenger() {
 }
 
 void HelloTriangleApplication::mainLoop() {
+	ImGuiIO& io = ImGui::GetIO();
+	int frameIndex = 0;
+	float lastCum = 0.1f;
+	float h = 0.01f;
+	bool first = true;
+	glm::vec3 varPos = glm::vec3(0.0f);
+	glm::vec3 varVel = glm::vec3(0.0f);
 	while (!glfwWindowShouldClose(window)) {
 		float currentFrame = static_cast<float>(glfwGetTime());
 		deltaTimeFrame = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+		cumDeltaFrame += deltaTimeFrame;
+		if (first) {
+			first = false;
+			simDelta = 0.0f;
+		}
+		else {
+			simDelta += deltaTimeFrame;
+		}
+		
+		if ((frameIndex % aveFrameWindow) == 0) {
+			lastCum = cumDeltaFrame;
+			cumDeltaFrame = 0.0f;
+		}
 
 		processInput(window);
 
@@ -1194,10 +1259,58 @@ void HelloTriangleApplication::mainLoop() {
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		ImGui::ShowDemoWindow();
+		ImGui::Begin("Simulation Settings");
+		if (ImGui::Button("Start/Pause Simulations")) {
+			runSim = !runSim;
+			first = true;
+		}
+		ImGui::DragFloat("Timestep", &h);
+		ImGui::Text("Flocking Behaivour");
+		ImGui::DragFloat("Coll Avoid Fac", &k_a, 0.01f, 0.0f, 10.0f);
+		ImGui::DragFloat("Vel Match Fac", &k_v, 0.01f, 0.0f, 10.0f);
+		ImGui::DragFloat("Centering Fac", &k_c, 0.01f, 0.0f, 10.0f);
+		ImGui::DragFloat("Potential Field Fac", &k_p, 0.01f, 0.0f, 10.0f);
+		ImGui::DragFloat3("Potential Location", glm::value_ptr(potentialFieldLoc), 0.01f, 0.0f, 10.0f);
+		ImGui::DragFloat("Search Radius", &searchRad, 0.01f, 0.0f, 100.0f);
+		ImGui::DragFloat("Fall Off", &fallOff, 0.01f, 0.0f, 50.0f);
+		if (ImGui::Button("Reset Simulation")) {
+			runSim = false;
+			first = true;
+			initBoids(varPos, varVel);
+		}
+		ImGui::DragFloat3("Position Variance", glm::value_ptr(varPos));
+		ImGui::DragFloat3("Velocity Variance", glm::value_ptr(varVel));
+		ImGui::End();
+
+		ImGui::Begin("Moths and Fireflies");
+		//ImGui::DragInt("Fireflies", &instanceNum, 1.0f, 0, INSTANCE_NUMBER);
+		//ImGui::DragInt("Moths", &instanceNum, 1.0f, 0, INSTANCE_NUMBER);
+		ImGui::End();
+
+		ImGui::Begin("Render Stats");
+		ImGui::Text("FPS: %f", (1.0f / lastCum) * aveFrameWindow);
+		ImGui::Text("Triangle: %i", indices.size() * instanceNum);
+		ImGui::Text("Instance: %i", instanceNum);
+		ImGui::End();
+
 		ImGui::Render();
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			ImGui::UpdatePlatformWindows();
+			ImGui::RenderPlatformWindowsDefault();
+		}
+
+		if (runSim && simDelta > h) {
+			
+			calculatePhysics();
+			//printf("pos of instance 1: %f\n", boids[0].phi);
+			integrate(h);
+			simDelta = 0.0f;
+		}
 		glfwPollEvents();
 		drawFrame();
+		frameIndex += 1;
+		
 	}
 	vkDeviceWaitIdle(device);
 }
@@ -1216,7 +1329,7 @@ void HelloTriangleApplication::drawFrame() {
 	} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
 		throw std::runtime_error("failed to acquire swap chain image!");
 
-	updateUniformBuffer(currentFrame);
+	updateUniformBuffer(currentFrame, 0);
 
 	vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
@@ -1260,25 +1373,76 @@ void HelloTriangleApplication::drawFrame() {
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage) {
-	static auto startTime = std::chrono::high_resolution_clock::now();
+void HelloTriangleApplication::calculatePhysics() {
+	for (size_t i = 0; i < INSTANCE_NUMBER; i++) {
+		glm::vec3 acc_a = glm::vec3(.0f, .0f, .0f);
+		glm::vec3 acc_v = glm::vec3(.0f, .0f, .0f);
+		glm::vec3 acc_c = glm::vec3(.0f, .0f, .0f);
+		glm::vec3 acc_p = glm::vec3(.0f, .0f, .0f);
+		for (size_t j = 0; j < INSTANCE_NUMBER; j++) {
+			if (i == j)
+				continue;
+			glm::vec3 distVec = boids[i].pos - boids[j].pos;
+			float dist = glm::length(distVec);
+			if (dist < 0.01f)
+				dist = 0.01f;
+			if (dist < searchRad) {
+				acc_a += glm::normalize(distVec) / dist;
+				acc_v += boids[j].vel - boids[i].vel;
+				acc_c += -distVec;
+			}
+			else if (dist < searchRad + fallOff) {
+				float w = ((searchRad + fallOff - dist) / fallOff);
+				acc_a += w * glm::normalize(distVec) / dist;
+				acc_v += w * (boids[j].vel - boids[i].vel);
+				acc_c += w * -distVec;
+			}
+		}
+		glm::vec3 dist = - potentialFieldLoc + boids[i].pos;
+		dist *= glm::vec3(1.0f, 1.0, 0.0f);
+		acc_p = glm::normalize(dist) / ((potFieldRad - glm::length(dist))* (potFieldRad - glm::length(dist)));
+		boids[i].acc = k_a * acc_a + k_v * acc_v + k_c * acc_c + k_p * acc_p;
+		glm::vec3 ux = glm::vec3(1.0, 0.0, 0.0), uy, uz, a_v, a_t;
+		glm::mat4 R = glm::mat4(1.0f);
+		float phi = 0.0f;
+		float alpha = 0.75;
+		ux = glm::normalize(boids[i].vel);
+		uy = glm::normalize(glm::cross(boids[i].acc, boids[i].vel));
+		uz = glm::cross(ux, uy);
+		R = glm::mat4(glm::vec4(ux, 0.0f), glm::vec4(uy, 0.0f), glm::vec4(uz, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		a_v = glm::dot(boids[i].acc, ux) * ux;
+		a_t = boids[i].acc - a_v;
+		phi = -atan(glm::dot(a_t, uz));
+		if (isnan(phi))
+			phi = 0.0f;
+		boids[i].phi = boids[i].phi * alpha + (1 - alpha) * phi;
+	}
+}
 
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
-
+void HelloTriangleApplication::updateUniformBuffer(uint32_t currentImage, uint32_t type) {
 	UniformBufferObject ubo{};
-	float gridSize = 2.0f;
-	for (int i = 0; i < INSTANCE_NUMBER; i++) {
+
+	for (size_t i = 0; i < INSTANCE_NUMBER; i++) {
 		//TODO: for each member, translate to location from updated loaction
 		//ubo.location[i] = glm::vec3(i * gridSize, i * gridSize, 0.0f);
-		
-		ubo.model[i] = glm::translate(glm::mat4(1.0f), glm::vec3(i * gridSize, i * gridSize, 0.0f));
+
+		//ubo.model[i] = R;
+		//ubo.model[i] = glm::rotate(ubo.model[i], phi, ux);
+		glm::vec3 ux = glm::vec3(1.0, 0.0, 0.0);// , uy, uz;
+
+		ux = glm::normalize(boids[i].vel);
+		//uy = glm::normalize(glm::cross(boids[i].acc, boids[i].vel));
+		//uz = glm::cross(ux, uy);
+		//glm::mat4 R = glm::mat4(glm::vec4(ux, 0.0f), glm::vec4(uy, 0.0f), glm::vec4(uz, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		ubo.model[i] = glm::translate(glm::mat4(1.0f), glm::vec3(boids[i].pos)) * glm::rotate(glm::mat4(1.0f), boids[i].phi, ux);
+
+
+		//ubo.model[i] = glm::translate(glm::mat4(1.0f), glm::vec3(i * gridSize, i * gridSize, 0.0f));
 		//TODO: after location update get them to orient according to their speed
-		//ubo.model[i] = glm::rotate(ubo.model[i], time * glm::radians(90.0f), glm::vec3(.0f, .0f, 1.0f));
+
 		//ubo.rotation[i] = glm::vec3(i * gridSize, i * gridSize, 0.0f);
 	}
+	//printf("this is for birdd");
 	
 	ubo.view = glm::lookAt(cam.pos, cam.pos + cam.front, cam.up);
 	//ubo.view = glm::lookAt(glm::vec3(10.0,10.0,10.0), glm::vec3(0, 0, 0), glm::vec3(0.0, 0.0, 1.0));
@@ -1459,7 +1623,7 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	renderPassInfo.renderArea.offset = { 0,0 };
 	renderPassInfo.renderArea.extent = swapChainExtent;
 	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+	clearValues[0].color = { {1.0f, 1.0f, 1.0f, 1.0f} };
 	clearValues[1].depthStencil = { 1.0f, 0 };
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
@@ -1488,10 +1652,22 @@ void HelloTriangleApplication::recordCommandBuffer(VkCommandBuffer commandBuffer
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
 	//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), INSTANCE_NUMBER, 0, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(birdindex), INSTANCE_NUMBER, 0, 0, 0);
+	//printf("image index after first draw %d", imageIndex);
+	/*
+	updateUniformBuffer(imageIndex, 1);
+	VkBuffer vertexBuffersSecondPass[] = { vertexBufferCylinder };
+	VkDeviceSize offsetsSec[] = { 0 };
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffersSecondPass, offsetsSec);
+	vkCmdBindIndexBuffer(commandBuffer, indexBufferCylinder, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+	 could not draw cylinde in a different drawcommand
+	//vkCmdDraw(commandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(cylinderindex), 1, 0, 0, 0);
+	printf("image index after Second draw %d", imageIndex);
+	*/
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 	vkCmdEndRenderPass(commandBuffer);
-
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 		throw std::runtime_error("failed to record command buffer!");
 }

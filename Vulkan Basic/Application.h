@@ -16,6 +16,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#include <glm/gtc/random.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <stb/stb_image.h>
 
@@ -40,12 +42,13 @@
 #include <chrono>
 #include <unordered_map>
 
+#include "Flock.h"
+
 #ifdef _DEBUG
 #define IMGUI_VULKAN_DEBUG_REPORT
 #endif
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
-const int INSTANCE_NUMBER = 50;
 
 struct Camera {
 	glm::vec3 pos;
@@ -63,7 +66,17 @@ struct Mouse {
 };
 
 static float deltaTimeFrame;
+static float cumDeltaFrame;
+static float simDelta;
+static int aveFrameWindow = 1000;
 static float lastFrame;
+
+struct Boid {
+	glm::vec3 pos;
+	glm::vec3 vel;
+	glm::vec3 acc;
+	float phi;
+};
 
 struct Vertex {
 	glm::vec3 pos;
@@ -141,7 +154,6 @@ struct UniformBufferObject {
 class HelloTriangleApplication {
 
 public:
-	HelloTriangleApplication();
 	void run();
 private:
 
@@ -171,11 +183,11 @@ private:
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 	void recreateSwapChain();
 	void cleanupSwapChain();
-	void createVertexBuffers();
-	void createIndexBuffers();
+	void createVertexBuffers(VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory, std::vector<Vertex> indices);
+	void createIndexBuffers(VkBuffer& indexBuffer, VkDeviceMemory& indexBufferMemory, std::vector<uint32_t> vertices);
 	void createDescriptorSetLayout();
 	void createUniformBuffers();
-	void updateUniformBuffer(uint32_t currentImage);
+	void updateUniformBuffer(uint32_t currentImage, uint32_t type);
 	void createDescriptorPool();
 	void createDescriptorSets();
 	void createTextureImage();
@@ -183,7 +195,7 @@ private:
 	void createTextureSampler();  
 	void createDepthResources();
 	VkFormat findDepthFormat();
-	void loadModel();
+	int loadModel(std::string model_path);
 	void initImGui();
 	bool hasStencilComponent(VkFormat format);
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -203,7 +215,9 @@ private:
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	uint32_t findMemorytype(uint32_t typeFiler, VkMemoryPropertyFlags properties);
-	
+	void calculatePhysics();
+	void initBoids(glm::vec3 posVar, glm::vec3 velVar);
+	void integrate(float time);
 	static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 		VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -221,8 +235,8 @@ private:
 	GLFWwindow* window;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
-	const std::string MODEL_PATH = "obj/terrorbird.obj";
-	const std::string TEXTURE_PATH = "textures/terrorbird.jpg";
+	const std::string MODEL_PATH = "obj/firebird.obj";
+	const std::string TEXTURE_PATH = "textures/firebird.png";
 
 	const std::vector<const char*> validationLayers = {
 		"VK_LAYER_KHRONOS_validation"
@@ -276,6 +290,11 @@ private:
 	VkBuffer indexBuffer;
 	VkDeviceMemory indexBufferMemory;
 
+	VkBuffer vertexBufferCylinder;
+	VkDeviceMemory vertexBufferMemoryCylinder;
+	VkBuffer indexBufferCylinder;
+	VkDeviceMemory indexBufferMemoryCylinder;
+
 	std::vector<VkBuffer> uniformBuffers;
 	std::vector<VkDeviceMemory> uniformBuffersMemory;
 
@@ -294,6 +313,22 @@ private:
 
 	VkDescriptorPool imguiPool;
 
+	int instanceNum = 1;
+
+	Boid boids[INSTANCE_NUMBER];
+
+	bool runSim = false;
+
+	float k_a = 0.0f;
+	float k_v = 0.0f;
+	float k_c = 0.0f;
+	float k_p = 0.0f;
+	float potFieldRad = 0.0f;
+	glm::vec3 potentialFieldLoc;
+	float searchRad = 1.5f;
+	float fallOff = 0.3f;
+	int birdindex;
+	int cylinderindex;
 };
 
 #endif 
